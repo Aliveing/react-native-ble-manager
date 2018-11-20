@@ -1,4 +1,3 @@
-#import "BleManager.h"
 #import "React/RCTBridge.h"
 #import "React/RCTConvert.h"
 #import "React/RCTEventDispatcher.h"
@@ -33,6 +32,7 @@ bool hasListeners;
         writeQueue = [NSMutableArray array];
         notificationCallbacks = [NSMutableDictionary new];
         stopNotificationCallbacks = [NSMutableDictionary new];
+        currentConnectedPeripheral = nil;
         _instance = self;
         NSLog(@"BleManager created");
         
@@ -191,11 +191,19 @@ bool hasListeners;
 - (CBPeripheral*)findPeripheralByUUID:(NSString*)uuid {
     
     CBPeripheral *peripheral = nil;
+
+    if(currentConnectedPeripheral){
+        NSString *currentConnectPeripheralUUID = currentConnectedPeripheral.identifier.UUIDString;
+        if([currentConnectPeripheralUUID isEqualToString:uuid]){
+            return currentConnectedPeripheral;
+        }
+    }
+    
     @synchronized(peripherals) {
         for (CBPeripheral *p in peripherals) {
-        
+            
             NSString* other = p.identifier.UUIDString;
-        
+            
             if ([uuid isEqualToString:other]) {
                 peripheral = p;
                 break;
@@ -722,6 +730,8 @@ RCT_EXPORT_METHOD(requestMTU:(NSString *)deviceUUID mtu:(NSInteger)mtu callback:
 {
     NSLog(@"Peripheral Connected: %@", [peripheral uuidAsString]);
     peripheral.delegate = self;
+    
+    self -> currentConnectedPeripheral = peripheral;
 
     // The state of the peripheral isn't necessarily updated until a small delay after didConnectPeripheral is called
     // and in the meantime didFailToConnectPeripheral may be called
@@ -744,6 +754,8 @@ RCT_EXPORT_METHOD(requestMTU:(NSString *)deviceUUID mtu:(NSInteger)mtu callback:
 
 - (void)centralManager:(CBCentralManager *)central didDisconnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
     NSLog(@"Peripheral Disconnected: %@", [peripheral uuidAsString]);
+    
+    currentConnectedPeripheral = nil;
 
     if (error) {
         NSLog(@"Error: %@", error);
