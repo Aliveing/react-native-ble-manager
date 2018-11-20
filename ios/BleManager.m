@@ -191,14 +191,15 @@ bool hasListeners;
 - (CBPeripheral*)findPeripheralByUUID:(NSString*)uuid {
     
     CBPeripheral *peripheral = nil;
-    
-    for (CBPeripheral *p in peripherals) {
+    @synchronized(peripherals) {
+        for (CBPeripheral *p in peripherals) {
         
-        NSString* other = p.identifier.UUIDString;
+            NSString* other = p.identifier.UUIDString;
         
-        if ([uuid isEqualToString:other]) {
-            peripheral = p;
-            break;
+            if ([uuid isEqualToString:other]) {
+                peripheral = p;
+                break;
+            }
         }
     }
     return peripheral;
@@ -579,19 +580,30 @@ RCT_EXPORT_METHOD(readRSSI:(NSString *)deviceUUID callback:(nonnull RCTResponseS
     
 }
 
-RCT_EXPORT_METHOD(retrieveServices:(NSString *)deviceUUID callback:(nonnull RCTResponseSenderBlock)callback)
+RCT_EXPORT_METHOD(retrieveServices:(NSString *)deviceUUID services:(NSArray<NSString *> *)services callback:(nonnull RCTResponseSenderBlock)callback)
 {
-    NSLog(@"retrieveServices");
+    NSLog(@"retrieveServices %@", services);
     
     CBPeripheral *peripheral = [self findPeripheralByUUID:deviceUUID];
     
     if (peripheral && peripheral.state == CBPeripheralStateConnected) {
         [retrieveServicesCallbacks setObject:callback forKey:[peripheral uuidAsString]];
-        [peripheral discoverServices:nil];
+        
+        NSMutableArray<CBUUID *> *uuids = [NSMutableArray new];
+        for ( NSString *string in services ) {
+            CBUUID *uuid = [CBUUID UUIDWithString:string];
+            [uuids addObject:uuid];
+        }
+        
+        if ( uuids.count > 0 ) {
+            [peripheral discoverServices:uuids];
+        } else {
+            [peripheral discoverServices:nil];
+        }
+        
     } else {
         callback(@[@"Peripheral not found or not connected"]);
     }
-    
 }
 
 RCT_EXPORT_METHOD(startNotification:(NSString *)deviceUUID serviceUUID:(NSString*)serviceUUID  characteristicUUID:(NSString*)characteristicUUID callback:(nonnull RCTResponseSenderBlock)callback)
