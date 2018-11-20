@@ -1,3 +1,4 @@
+#import "BleManager.h"
 #import "React/RCTBridge.h"
 #import "React/RCTConvert.h"
 #import "React/RCTEventDispatcher.h"
